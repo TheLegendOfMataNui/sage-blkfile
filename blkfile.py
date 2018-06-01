@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 SAGE BLK file tool
-Version: 1.0.0
+Version: 2.0.0
 
 Copyright (c) 2018 JrMasterModelBuilder
 Licensed under the Mozilla Public License, v. 2.0
@@ -18,12 +18,21 @@ import argparse
 
 file_extension = '.blk'
 dir_extension = '.dir'
+byte_alignment = 4
 
 def class_str(instance):
 	return class_repr(instance)
 
 def class_repr(instance):
 	return '<%s: %s>' % (instance.__class__, instance.__dict__)
+
+def getc(b):
+	d = b.read(1)
+	if len(d) < 1: return None
+	return struct.unpack('<B', d)[0]
+
+def putc(v, b):
+	b.write(struct.pack('<B', v))
 
 
 
@@ -45,43 +54,217 @@ class BLKLZSS():
 		self.F = F
 		self.THRESHOLD = THRESHOLD
 		self.text_buf = bytearray(N + F - 1)
+		self.lson = [0] * (N + 1)
+		self.rson = [0] * (N + 257)
+		self.dad = [0] * (N + 1)
+		self.match_length = 0
+		self.match_position = 0
+
+	def init_tree(self):
+		for i in range(self.N + 1, self.N + 256 + 1):
+			self.rson[i] = self.N
+		for i in range(self.N):
+			self.dad[i] = self.N
+
+	def insert_node(self, r):
+		cm = 1
+		key = r
+		p = self.N + 1 + self.text_buf[key]
+		self.rson[r] = self.N
+		self.lson[r] = self.N
+		self.match_length = 0
+
+		while True:
+			if cm >= 0:
+				if self.rson[p] != self.N:
+					p = self.rson[p]
+				else:
+					self.rson[p] = r
+					self.dad[r] = p
+					return
+			else:
+				if self.lson[p] != self.N:
+					p = self.lson[p]
+				else:
+					self.lson[p] = r
+					self.dad[r] = p
+					return
+
+			i = 1
+			for i in range(1, self.F):
+				cm = self.text_buf[key + i] - self.text_buf[p + i]
+				if cm != 0:
+					break
+
+			if i > self.match_length:
+				self.match_position = p
+				self.match_length = i
+				if self.match_length >= self.F:
+					break
+
+		self.dad[r] = self.dad[p]
+		self.lson[r] = self.lson[p]
+		self.rson[r] = self.rson[p]
+		self.dad[self.lson[p]] = r
+		self.dad[self.rson[p]] = r
+		if self.rson[self.dad[p]] == p:
+			self.rson[self.dad[p]] = r
+		else:
+			self.lson[self.dad[p]] = r
+		self.dad[p] = self.N
+
+	def delete_node(self, p):
+		q = 0
+		if self.dad[p] == self.N:
+			return
+
+		if self.rson[p] == self.N:
+			q = self.lson[p]
+		elif self.lson[p] == self.N:
+			q = self.rson[p]
+		else:
+			q = self.lson[p]
+			if self.rson[q] != self.N:
+				while True:
+					q = self.rson[q]
+					if not (self.rson[q] != self.N):
+						break
+				self.rson[self.dad[q]] = self.lson[q]
+				self.dad[self.lson[q]] = self.dad[q]
+				self.lson[q] = self.lson[p]
+				self.dad[self.lson[p]] = q
+			self.rson[q] = self.rson[p]
+			self.dad[self.rson[p]] = q
+
+		self.dad[q] = self.dad[p]
+		if self.rson[self.dad[p]] == p:
+			self.rson[self.dad[p]] = q
+		else:
+			self.lson[self.dad[p]] = q
+		self.dad[p] = self.N
+
+	def encode(self, data):
+		infile = io.BytesIO(data)
+		outfile = io.BytesIO()
+		code_buf = bytearray(17)
+
+		self.init_tree()
+		code_buf[0] = 0
+
+		mask = 1
+		code_buf_ptr = 1
+		s = 0
+		r = self.N - self.F
+		i = s
+		for i in range(i, r):
+			self.text_buf[i] = 0x20
+
+		l = 0
+		while l < self.F:
+			c = getc(infile)
+			if c is None: break
+			self.text_buf[r + l] = c
+			l += 1
+
+		if l == 0:
+			return b''
+
+		i = 1
+		for i in range(i, self.F + 1):
+			self.insert_node(r - i)
+
+		self.insert_node(r)
+		while True:
+			if self.match_length > l:
+				self.match_length = l
+
+			if self.match_length <= self.THRESHOLD:
+				self.match_length = 1
+				code_buf[0] |= mask
+				code_buf[code_buf_ptr] = self.text_buf[r]
+				code_buf_ptr += 1
+			else:
+				code_buf[code_buf_ptr] = self.match_position & 0xFF
+				code_buf_ptr += 1
+				code_buf[code_buf_ptr] = (
+					((self.match_position >> 4) & 0xf0) |
+					(self.match_length - (self.THRESHOLD + 1))
+				) & 0xFF
+				code_buf_ptr += 1
+
+			mask <<= 1
+			mask &= 0xFF
+			if mask == 0:
+				i = 0
+				for i in range(i, code_buf_ptr):
+					putc(code_buf[i], outfile)
+				code_buf[0] = 0
+				code_buf_ptr = 1
+				mask = 1
+
+			last_match_length = self.match_length
+			i = 0
+			while i < last_match_length:
+				c = getc(infile)
+				if c is None: break
+				self.delete_node(s)
+				self.text_buf[s] = c
+				if s < self.F - 1:
+					self.text_buf[s + self.N] = c
+				s = (s + 1) & (self.N - 1)
+				r = (r + 1) & (self.N - 1)
+				self.insert_node(r)
+				i += 1
+
+			while i < last_match_length:
+				i += 1
+				self.delete_node(s)
+				s = (s + 1) & (self.N - 1)
+				r = (r + 1) & (self.N - 1)
+				l -= 1
+				if l:
+					self.insert_node(r)
+			i += 1
+
+			if not (l > 0):
+				break
+
+		if code_buf_ptr > 1:
+			i = 0
+			for i in range(i, code_buf_ptr):
+				putc(code_buf[i], outfile)
+
+		outfile.seek(0)
+		return outfile.read()
 
 	def decode(self, data):
-		bi = io.BytesIO(data)
-		bo = io.BytesIO()
+		infile = io.BytesIO(data)
+		outfile = io.BytesIO()
 
 		for i in range(self.N - self.F):
 			self.text_buf[i] = 0x30
-
-		def getc():
-			d = bi.read(1)
-			if len(d) < 1: return None
-			return struct.unpack('<B', d)[0]
-
-		def putc(v):
-			bo.write(struct.pack('<B', v))
 
 		r = self.N - self.F
 		flags = 0
 		while True:
 			flags >>= 1
 			if (flags & 256) == 0:
-				c = getc()
+				c = getc(infile)
 				if c is None: break
 				flags = c | 0xFF00
 
 			if flags & 1:
-				c = getc()
+				c = getc(infile)
 				if c is None: break
 
-				putc(c)
+				putc(c, outfile)
 				self.text_buf[r] = c
 				r += 1
 				r &= self.N - 1
 			else:
-				i = getc()
+				i = getc(infile)
 				if i is None: break
-				j = getc()
+				j = getc(infile)
 				if j is None: break
 
 				i |= (j & 0xf0) << 4
@@ -89,13 +272,13 @@ class BLKLZSS():
 
 				for k in range(j + 1):
 					c = self.text_buf[(i + k) & (self.N - 1)]
-					putc(c)
+					putc(c, outfile)
 					self.text_buf[r] = c
 					r += 1
 					r &= self.N - 1
 
-		bo.seek(0)
-		return bo.read()
+		outfile.seek(0)
+		return outfile.read()
 
 
 
@@ -231,10 +414,30 @@ class BLKEntryWrite(BLKEntry):
 			self.offset
 		)
 
-	def write_to(self, write, data):
-		# TODO: LZSS compression support if smaller size (sets the lowest bit).
-		self.flags = 0b10
-		self.size_c = self.size_d = len(data)
+	def write_to(self, write, data, compress = None):
+		compressed = False
+		decompressed_len = len(data)
+
+		# If not force uncompressed, compress data.
+		if not compress is False:
+			# Compress data.
+			lzss = BLKLZSS()
+			data_comp = lzss.encode(data)
+
+			# If forced or smaller, use the compressed data.
+			if compress is True or len(data_comp) < decompressed_len:
+				data = data_comp
+				compressed = True
+
+		# Write compressed or uncompressed.
+		if compressed:
+			self.flags = 0b11
+			self.size_c = len(data)
+		else:
+			self.flags = 0b10
+			self.size_c = decompressed_len
+
+		self.size_d = decompressed_len
 		write.write(data)
 
 
@@ -452,6 +655,11 @@ class BLKFileWrite(BLKFile):
 			entry.offset = self.tell()
 			yield entry
 
+			# Pad to byte alignment.
+			unaligned = self.tell() % byte_alignment
+			if unaligned:
+				self.write(b'\x00' * (byte_alignment - unaligned))
+
 		# Rewrite the entries table.
 		before = self.tell()
 		self.seek(entries_offset, os.SEEK_SET)
@@ -552,6 +760,13 @@ def process_directory(options, path):
 			)
 		)
 
+	# Check for compression option.
+	compress = None
+	if options.decompressed:
+		compress = False
+	elif options.compressed:
+		compress = True
+
 	# List files in directory.
 	files = set()
 	for direntry in os.listdir(path):
@@ -576,7 +791,7 @@ def process_directory(options, path):
 			fn = entry.get_name().decode('utf8')
 			print('Adding: %s' % (fn))
 			with open(os.path.join(path, fn), 'rb') as f:
-				entry.write_to(blk, f.read())
+				entry.write_to(blk, f.read(), compress)
 				f.close()
 		fo.close()
 
@@ -594,7 +809,7 @@ def main():
 	parser = argparse.ArgumentParser(
 		description=os.linesep.join([
 			'SAGE BLK file tool',
-			'Version: 1.0.0'
+			'Version: 2.0.0'
 		]),
 		epilog=os.linesep.join([
 			'Copyright (c) 2018 JrMasterModelBuilder',
@@ -604,6 +819,21 @@ def main():
 		]),
 		formatter_class=argparse.RawTextHelpFormatter
 	)
+
+	group_cd = parser.add_mutually_exclusive_group()
+	group_cd.add_argument(
+		'-c',
+		'--compressed',
+		action='store_true',
+		help='Force all file data to be compressed (defaults to smaller option)'
+	)
+	group_cd.add_argument(
+		'-d',
+		'--decompressed',
+		action='store_true',
+		help='Force all file data to be decompressed (defaults to smaller option)'
+	)
+
 	parser.add_argument(
 		'-l',
 		'--list',

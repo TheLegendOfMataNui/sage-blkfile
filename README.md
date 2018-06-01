@@ -13,23 +13,23 @@ Games known to use this format:
 
 - BIONICLE: The Legend of Mata Nui
 
-NOTE: New archives are currently created without compression.
-
 
 ## Usage
 
 ```
-usage: blkfile.py [-h] [-l] paths [paths ...]
+usage: blkfile.py [-h] [-c | -d] [-l] paths [paths ...]
 
 SAGE BLK file tool
-Version: 1.0.0
+Version: 2.0.0
 
 positional arguments:
-  paths       Paths to run on
+  paths               Paths to run on
 
 optional arguments:
-  -h, --help  show this help message and exit
-  -l, --list  Just list archived files
+  -h, --help          show this help message and exit
+  -c, --compressed    Force all file data to be compressed (defaults to smaller option)
+  -d, --decompressed  Force all file data to be decompressed (defaults to smaller option)
+  -l, --list          Just list archived files
 
 Copyright (c) 2018 JrMasterModelBuilder
 Licensed under the Mozilla Public License, v. 2.0
