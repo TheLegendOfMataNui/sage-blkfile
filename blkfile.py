@@ -61,29 +61,34 @@ class BLKLZSS():
 		self.match_position = 0
 
 	def init_tree(self):
-		for i in range(self.N + 1, self.N + 256 + 1):
-			self.rson[i] = self.N
-		for i in range(self.N):
-			self.dad[i] = self.N
+		N = self.N
+
+		for i in range(N + 1, N + 256 + 1):
+			self.rson[i] = N
+		for i in range(N):
+			self.dad[i] = N
 
 	def insert_node(self, r):
+		F = self.F
+		N = self.N
+
 		cm = 1
 		key = r
-		p = self.N + 1 + self.text_buf[key]
-		self.rson[r] = self.N
-		self.lson[r] = self.N
+		p = N + 1 + self.text_buf[key]
+		self.rson[r] = N
+		self.lson[r] = N
 		self.match_length = 0
 
 		while True:
 			if cm >= 0:
-				if self.rson[p] != self.N:
+				if self.rson[p] != N:
 					p = self.rson[p]
 				else:
 					self.rson[p] = r
 					self.dad[r] = p
 					return
 			else:
-				if self.lson[p] != self.N:
+				if self.lson[p] != N:
 					p = self.lson[p]
 				else:
 					self.lson[p] = r
@@ -91,7 +96,7 @@ class BLKLZSS():
 					return
 
 			i = 1
-			while i < self.F:
+			while i < F:
 				cm = self.text_buf[key + i] - self.text_buf[p + i]
 				if cm != 0:
 					break
@@ -100,7 +105,7 @@ class BLKLZSS():
 			if i > self.match_length:
 				self.match_position = p
 				self.match_length = i
-				if self.match_length >= self.F:
+				if self.match_length >= F:
 					break
 
 		self.dad[r] = self.dad[p]
@@ -112,23 +117,25 @@ class BLKLZSS():
 			self.rson[self.dad[p]] = r
 		else:
 			self.lson[self.dad[p]] = r
-		self.dad[p] = self.N
+		self.dad[p] = N
 
 	def delete_node(self, p):
+		N = self.N
+
 		q = 0
-		if self.dad[p] == self.N:
+		if self.dad[p] == N:
 			return
 
-		if self.rson[p] == self.N:
+		if self.rson[p] == N:
 			q = self.lson[p]
-		elif self.lson[p] == self.N:
+		elif self.lson[p] == N:
 			q = self.rson[p]
 		else:
 			q = self.lson[p]
-			if self.rson[q] != self.N:
+			if self.rson[q] != N:
 				while True:
 					q = self.rson[q]
-					if not (self.rson[q] != self.N):
+					if not (self.rson[q] != N):
 						break
 				self.rson[self.dad[q]] = self.lson[q]
 				self.dad[self.lson[q]] = self.dad[q]
@@ -142,9 +149,13 @@ class BLKLZSS():
 			self.rson[self.dad[p]] = q
 		else:
 			self.lson[self.dad[p]] = q
-		self.dad[p] = self.N
+		self.dad[p] = N
 
 	def encode(self, data):
+		F = self.F
+		N = self.N
+		THRESHOLD = self.THRESHOLD
+
 		infile = io.BytesIO(data)
 		outfile = io.BytesIO()
 		code_buf = bytearray(17)
@@ -155,13 +166,13 @@ class BLKLZSS():
 		mask = 1
 		code_buf_ptr = 1
 		s = 0
-		r = self.N - self.F
+		r = N - F
 		i = s
 		for i in range(i, r):
 			self.text_buf[i] = 0x20
 
 		l = 0
-		while l < self.F:
+		while l < F:
 			c = getc(infile)
 			if c is None: break
 			self.text_buf[r + l] = c
@@ -171,7 +182,7 @@ class BLKLZSS():
 			return b''
 
 		i = 1
-		for i in range(i, self.F + 1):
+		for i in range(i, F + 1):
 			self.insert_node(r - i)
 
 		self.insert_node(r)
@@ -179,7 +190,7 @@ class BLKLZSS():
 			if self.match_length > l:
 				self.match_length = l
 
-			if self.match_length <= self.THRESHOLD:
+			if self.match_length <= THRESHOLD:
 				self.match_length = 1
 				code_buf[0] |= mask
 				code_buf[code_buf_ptr] = self.text_buf[r]
@@ -189,7 +200,7 @@ class BLKLZSS():
 				code_buf_ptr += 1
 				code_buf[code_buf_ptr] = (
 					((self.match_position >> 4) & 0xf0) |
-					(self.match_length - (self.THRESHOLD + 1))
+					(self.match_length - (THRESHOLD + 1))
 				) & 0xFF
 				code_buf_ptr += 1
 
@@ -210,18 +221,18 @@ class BLKLZSS():
 				if c is None: break
 				self.delete_node(s)
 				self.text_buf[s] = c
-				if s < self.F - 1:
-					self.text_buf[s + self.N] = c
-				s = (s + 1) & (self.N - 1)
-				r = (r + 1) & (self.N - 1)
+				if s < F - 1:
+					self.text_buf[s + N] = c
+				s = (s + 1) & (N - 1)
+				r = (r + 1) & (N - 1)
 				self.insert_node(r)
 				i += 1
 
 			while i < last_match_length:
 				i += 1
 				self.delete_node(s)
-				s = (s + 1) & (self.N - 1)
-				r = (r + 1) & (self.N - 1)
+				s = (s + 1) & (N - 1)
+				r = (r + 1) & (N - 1)
 				l -= 1
 				if l:
 					self.insert_node(r)
@@ -239,13 +250,17 @@ class BLKLZSS():
 		return outfile.read()
 
 	def decode(self, data):
+		F = self.F
+		N = self.N
+		THRESHOLD = self.THRESHOLD
+
 		infile = io.BytesIO(data)
 		outfile = io.BytesIO()
 
-		for i in range(self.N - self.F):
+		for i in range(N - F):
 			self.text_buf[i] = 0x30
 
-		r = self.N - self.F
+		r = N - F
 		flags = 0
 		while True:
 			flags >>= 1
@@ -261,7 +276,7 @@ class BLKLZSS():
 				putc(c, outfile)
 				self.text_buf[r] = c
 				r += 1
-				r &= self.N - 1
+				r &= N - 1
 			else:
 				i = getc(infile)
 				if i is None: break
@@ -269,14 +284,14 @@ class BLKLZSS():
 				if j is None: break
 
 				i |= (j & 0xf0) << 4
-				j = (j & 0x0f) + self.THRESHOLD
+				j = (j & 0x0f) + THRESHOLD
 
 				for k in range(j + 1):
-					c = self.text_buf[(i + k) & (self.N - 1)]
+					c = self.text_buf[(i + k) & (N - 1)]
 					putc(c, outfile)
 					self.text_buf[r] = c
 					r += 1
-					r &= self.N - 1
+					r &= N - 1
 
 		outfile.seek(0)
 		return outfile.read()
