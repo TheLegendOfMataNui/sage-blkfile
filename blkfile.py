@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 SAGE BLK file tool
-Version: 2.0.0
+Version: 2.0.1
 
 Copyright (c) 2018 JrMasterModelBuilder
 Licensed under the Mozilla Public License, v. 2.0
@@ -810,7 +810,7 @@ def main():
 	parser = argparse.ArgumentParser(
 		description=os.linesep.join([
 			'SAGE BLK file tool',
-			'Version: 2.0.0'
+			'Version: 2.0.1'
 		]),
 		epilog=os.linesep.join([
 			'Copyright (c) 2018 JrMasterModelBuilder',
