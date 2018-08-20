@@ -91,10 +91,11 @@ class BLKLZSS():
 					return
 
 			i = 1
-			for i in range(1, self.F):
+			while i < self.F:
 				cm = self.text_buf[key + i] - self.text_buf[p + i]
 				if cm != 0:
 					break
+				i += 1
 
 			if i > self.match_length:
 				self.match_position = p
