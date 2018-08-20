@@ -160,14 +160,14 @@ class BLKLZSS():
 			lson[dad[p]] = q
 		dad[p] = N
 
-	def encode(self, data):
+	def encode(self, data, allocate = 0):
 		F = self.F
 		N = self.N
 		THRESHOLD = self.THRESHOLD
 		text_buf = self.text_buf
 
 		infile = io.BytesIO(data)
-		outfile = io.BytesIO()
+		outfile = io.BytesIO(bytearray(allocate))
 		code_buf = bytearray(17)
 
 		self.init_tree()
@@ -257,17 +257,18 @@ class BLKLZSS():
 			for i in range(i, code_buf_ptr):
 				putc(code_buf[i], outfile)
 
+		end = outfile.tell()
 		outfile.seek(0)
-		return outfile.read()
+		return outfile.read(end)
 
-	def decode(self, data):
+	def decode(self, data, allocate = 0):
 		F = self.F
 		N = self.N
 		THRESHOLD = self.THRESHOLD
 		text_buf = self.text_buf
 
 		infile = io.BytesIO(data)
-		outfile = io.BytesIO()
+		outfile = io.BytesIO(bytearray(allocate))
 
 		for i in range(N - F):
 			text_buf[i] = 0x30
@@ -305,8 +306,9 @@ class BLKLZSS():
 					r += 1
 					r &= N - 1
 
+		end = outfile.tell()
 		outfile.seek(0)
-		return outfile.read()
+		return outfile.read(end)
 
 
 
@@ -404,19 +406,20 @@ class BLKEntryRead(BLKEntry):
 		self.offset = offset
 
 	def read_from(self, read):
+		size_d = self.size_d
 		compressed = self.get_is_compressed()
 		block_size = self.get_block_size()
 		read.seek(self.offset)
 		data = read.read(block_size)
 		if compressed:
 			lzss = BLKLZSS()
-			data = lzss.decode(data)
+			data = lzss.decode(data, size_d)
 			data_l = len(data)
-			if data_l != self.size_d:
+			if data_l != size_d:
 				raise BLKEntryReadError(
 					'Decoded size not expected: %s != %s' % (
 						data_l,
-						self.size_d
+						size_d
 					)
 				)
 		return data
@@ -448,9 +451,9 @@ class BLKEntryWrite(BLKEntry):
 
 		# If not force uncompressed, compress data.
 		if not compress is False:
-			# Compress data.
+			# Compress data, using size as rough estimate of compressed size.
 			lzss = BLKLZSS()
-			data_comp = lzss.encode(data)
+			data_comp = lzss.encode(data, decompressed_len)
 
 			# If forced or smaller, use the compressed data.
 			if compress is True or len(data_comp) < decompressed_len:
