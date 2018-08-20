@@ -20,7 +20,7 @@ Games known to use this format:
 usage: blkfile.py [-h] [-c | -d] [-l] paths [paths ...]
 
 SAGE BLK file tool
-Version: 2.0.1
+Version: 2.1.0
 
 positional arguments:
   paths               Paths to run on
