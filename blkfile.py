@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 SAGE BLK file tool
-Version: 2.1.0
+Version: 2.2.0
 
 Copyright (c) 2018 JrMasterModelBuilder
 Licensed under the Mozilla Public License, v. 2.0
@@ -709,6 +709,9 @@ def process_file(options, path):
 		outdir = path[0:-len(file_extension)]
 	else:
 		outdir = path + dir_extension
+	
+	if options.output != None:
+		outdir = options.output
 
 	# Open the file for binary reading.
 	with open(path, 'rb') as fi:
@@ -784,6 +787,8 @@ def process_directory(options, path):
 	print('Directory: %s' % (path))
 
 	outfile = path.rstrip('/\\') + file_extension
+	if options.output != None:
+		outfile = options.output
 	if os.path.exists(outfile):
 		raise BLKError(
 			'Output file already exists: %s' % (
@@ -870,6 +875,12 @@ def main():
 		'--list',
 		action='store_true',
 		help='Just list archived files'
+	)
+	parser.add_argument(
+		'-o',
+		'--output',
+		action='store',
+		help='Override the default output path'
 	)
 	parser.add_argument(
 		'paths',
