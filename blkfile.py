@@ -3,7 +3,7 @@
 SAGE BLK file tool
 Version: 2.2.0
 
-Copyright (c) 2018 JrMasterModelBuilder
+Copyright (c) 2018-2019 JrMasterModelBuilder
 Licensed under the Mozilla Public License, v. 2.0
 
 LZSS code based on LZSS.C 4/6/1989 Haruhiko Okumura
@@ -845,10 +845,10 @@ def main():
 	parser = argparse.ArgumentParser(
 		description=os.linesep.join([
 			'SAGE BLK file tool',
-			'Version: 2.1.0'
+			'Version: 2.2.0'
 		]),
 		epilog=os.linesep.join([
-			'Copyright (c) 2018 JrMasterModelBuilder',
+			'Copyright (c) 2018-2019 JrMasterModelBuilder',
 			'Licensed under the Mozilla Public License, v. 2.0',
 			'',
 			'LZSS code based on LZSS.C 4/6/1989 Haruhiko Okumura'
