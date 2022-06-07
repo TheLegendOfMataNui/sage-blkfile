@@ -20,7 +20,7 @@ Games known to use this format:
 usage: blkfile.py [-h] [-c | -d] [-l] [-o OUTPUT] paths [paths ...]
 
 SAGE BLK file tool
-Version: 2.2.0
+Version: 2.2.1
 
 positional arguments:
   paths                 Paths to run on
@@ -33,7 +33,7 @@ optional arguments:
   -o OUTPUT, --output OUTPUT
                         Override the default output path
 
-Copyright (c) 2018-2019 JrMasterModelBuilder
+Copyright (c) 2018-2022 JrMasterModelBuilder
 Licensed under the Mozilla Public License, v. 2.0
 
 LZSS code based on LZSS.C 4/6/1989 Haruhiko Okumura
@@ -47,7 +47,7 @@ If you find a bug or have compatibility issues, please open a ticket under issue
 
 ## License
 
-Copyright (c) 2018-2019 JrMasterModelBuilder
+Copyright (c) 2018-2022 JrMasterModelBuilder
 
 Licensed under the Mozilla Public License, v. 2.0
 
