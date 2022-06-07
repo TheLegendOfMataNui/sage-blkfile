@@ -271,7 +271,7 @@ class BLKLZSS():
 		outfile = io.BytesIO(bytearray(allocate))
 
 		for i in range(N - F):
-			text_buf[i] = 0x30
+			text_buf[i] = 0x20
 
 		r = N - F
 		flags = 0
